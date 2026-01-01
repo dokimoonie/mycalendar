@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>营业热力图</title>
+    <title>Kevin & Friends 营业记录</title>
     <style>
         :root { --bg: #f5f5f7; --card: #fff; --primary: #FF5A00; --text: #1d1d1f; --gray: #86868b; }
         body { font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; max-width: 600px; margin: 0 auto; padding-bottom: 80px; }
@@ -23,7 +23,6 @@
         .lv-1 { background: #ffe4d6; color: #d64000; }
         .lv-2 { background: #ffb088; color: #fff; }
         .lv-3 { background: #FF5A00; color: #fff; font-weight:bold; }
-        .lv-4 { background: #cc3300; color: #fff; font-weight:bold; }
 
         .member-card { background: var(--card); border-radius: 16px; padding: 20px; margin-bottom: 20px; }
         .member-header { display: flex; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
@@ -87,10 +86,8 @@
         const lockIcon = document.getElementById('lockIcon');
         
         let today = new Date();
-        // 修正时区
-        const offset = today.getTimezoneOffset() * 60000;
-        const localISOTime = (new Date(today - offset)).toISOString().slice(0, 10);
-        dateInput.value = localISOTime;
+        // 简单的时间处理，防止报错
+        dateInput.valueAsDate = today;
         
         let calendarViewDate = new Date(); 
 
@@ -108,4 +105,164 @@
                     lockIcon.textContent = "🔓";
                     alert("解锁成功！");
                     render();
+                } else {
+                    alert("密码错误");
                 }
+            }
+        }
+
+        // 2. 渲染主界面
+        function render() {
+            app.innerHTML = '';
+            const dateKey = dateInput.value;
+            displayDate.textContent = "当前查看: " + dateKey;
+
+            // 过滤可见成员
+            const visibleMembers = members.filter(m => isUnlocked || !m.private);
+
+            visibleMembers.forEach(member => {
+                const card = document.createElement('div');
+                card.className = 'member-card';
+
+                let totalToday = 0;
+                categories.forEach(cat => totalToday += getData(dateKey, member.name, cat));
+
+                let html = `
+                    <div class="member-header">
+                        <div class="avatar">${member.emoji}</div>
+                        <span style="font-weight:bold; font-size:18px;">${member.name}</span>
+                        ${totalToday > 0 ? `<span style="margin-left:auto; background:var(--primary); color:white; padding:2px 8px; border-radius:10px; font-size:12px;">${totalToday}</span>` : ''}
+                    </div>
+                `;
+
+                categories.forEach(cat => {
+                    const count = getData(dateKey, member.name, cat);
+                    html += `
+                        <div class="row">
+                            <span>${cat}</span>
+                            <div class="ctrls">
+                                <button class="btn" onclick="updateCount('${member.name}', '${cat}', -1)">-</button>
+                                <input type="number" class="num" value="${count}" onchange="manualInput('${member.name}', '${cat}', this.value)">
+                                <button class="btn" onclick="updateCount('${member.name}', '${cat}', 1)">+</button>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                const note = getNote(dateKey, member.name);
+                html += `<input type="text" class="note" placeholder="备注..." value="${note}" oninput="saveNote('${member.name}', this.value)">`;
+
+                card.innerHTML = html;
+                app.appendChild(card);
+            });
+
+            renderSummary(dateKey, visibleMembers);
+            renderCalendar(visibleMembers);
+        }
+
+        // 3. 渲染摘要
+        function renderSummary(dateKey, visibleMembers) {
+            let summaryHTML = '';
+            let hasActivity = false;
+
+            visibleMembers.forEach(member => {
+                let acts = [];
+                categories.forEach(cat => {
+                    const c = getData(dateKey, member.name, cat);
+                    if (c > 0) acts.push(`${cat} x${c}`);
+                });
+                const note = getNote(dateKey, member.name);
+                if (note) acts.push(`"${note}"`);
+
+                if (acts.length > 0) {
+                    hasActivity = true;
+                    summaryHTML += `<div style="margin-bottom:4px;">${member.emoji} <b>${member.name}</b>: ${acts.join(', ')}</div>`;
+                }
+            });
+
+            summaryContent.innerHTML = hasActivity ? summaryHTML : '<span style="color:#aaa;">😴 暂无记录</span>';
+        }
+
+        // 4. 渲染日历
+        function renderCalendar(visibleMembers) {
+            const grid = document.getElementById('calendarGrid');
+            grid.innerHTML = ''; 
+            
+            const year = calendarViewDate.getFullYear();
+            const month = calendarViewDate.getMonth();
+            document.getElementById('calendarMonthYear').textContent = `${year}年 ${month + 1}月`;
+
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const firstDay = new Date(year, month, 1).getDay();
+            const weekDays = ['日', '一', '二', '三', '四', '五', '六'];
+            
+            weekDays.forEach(d => {
+                const l = document.createElement('div');
+                l.className = 'cal-day-label'; l.textContent = d;
+                grid.appendChild(l);
+            });
+
+            for (let i = 0; i < firstDay; i++) grid.appendChild(document.createElement('div'));
+
+            for (let i = 1; i <= daysInMonth; i++) {
+                const el = document.createElement('div');
+                // 简单的日期字符串拼接，确保兼容性
+                const currentMonth = String(month + 1).padStart(2, '0');
+                const currentDay = String(i).padStart(2, '0');
+                const dateStr = `${year}-${currentMonth}-${currentDay}`;
+                
+                el.textContent = i;
+                
+                // 计算热力
+                let total = 0;
+                visibleMembers.forEach(m => categories.forEach(c => total += getData(dateStr, m.name, c)));
+                
+                el.className = 'cal-day';
+                if (total > 0) el.classList.add('lv-1');
+                if (total >= 6) el.classList.add('lv-2');
+                if (total >= 16) el.classList.add('lv-3'); 
+                
+                if (dateStr === dateInput.value) el.classList.add('selected');
+
+                el.onclick = () => { dateInput.value = dateStr; render(); };
+                grid.appendChild(el);
+            }
+        }
+
+        function changeMonth(offset) {
+            calendarViewDate.setMonth(calendarViewDate.getMonth() + offset);
+            // 重新渲染时，需要传入当前的 visibleMembers
+            const visibleMembers = members.filter(m => isUnlocked || !m.private);
+            renderCalendar(visibleMembers);
+        }
+
+        // 5. 数据存取 (LocalStorage)
+        function getData(date, name, cat) { return parseInt(localStorage.getItem(`${date}_${name}_${cat}`)) || 0; }
+        function getNote(date, name) { return localStorage.getItem(`${date}_${name}_note`) || ""; }
+        
+        function updateCount(name, cat, delta) {
+            const date = dateInput.value;
+            let val = getData(date, name, cat) + delta;
+            if (val < 0) val = 0;
+            localStorage.setItem(`${date}_${name}_${cat}`, val);
+            render();
+        }
+        function manualInput(name, cat, val) {
+            const date = dateInput.value;
+            let v = parseInt(val);
+            if (isNaN(v) || v < 0) v = 0;
+            localStorage.setItem(`${date}_${name}_${cat}`, v);
+            render();
+        }
+        function saveNote(name, val) {
+            localStorage.setItem(`${dateInput.value}_${name}_note`, val);
+            const visibleMembers = members.filter(m => isUnlocked || !m.private);
+            renderSummary(dateInput.value, visibleMembers);
+        }
+
+        // 启动
+        render();
+
+    </script>
+</body>
+</html>
