@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RIIZE 3 营业记录</title>
+    <style>
+        :root {
+            /* 🍊 橙色调色盘 */
+            --bg: #fff8f5;         /* 极淡的橙色背景 */
+            --card: #ffffff;
+            --primary: #FF5A00;    /* RIIZE 官方橙 */
+            --accent: #ff9f43;     /* 辅助浅橙 */
+            --text: #2d3436;
+            --gray: #86868b;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0; padding: 20px;
+            max-width: 600px; margin: 0 auto;
+            padding-bottom: 80px;
+        }
+
+        header { text-align: center; margin-bottom: 25px; margin-top: 10px; }
+        h1 { font-size: 24px; margin: 0; color: var(--primary); letter-spacing: -0.5px; }
+        p { font-size: 13px; color: var(--gray); margin-top: 5px; }
+
+        /* 日历区域 */
+        .calendar-box {
+            background: var(--card); border-radius: 16px; padding: 15px;
+            box-shadow: 0 8px 24px rgba(255, 90, 0, 0.08); /* 橙色阴影 */
+            margin-bottom: 25px;
+        }
+        .cal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; font-weight: bold; font-size: 18px; }
+        .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; text-align: center; }
+        .cal-day-label { font-size: 12px; color: var(--gray); margin-bottom: 5px; }
+        
+        .cal-day {
+            aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
+            border-radius: 8px; font-size: 14px; cursor: pointer;
+            background: #fff; border: 1px solid #eee; color: #ccc;
+            transition: all 0.2s;
+        }
+        
+        /* 选中日期的特效 */
+        .cal-day.selected { 
+            border: 2px solid var(--primary); 
+            color: var(--primary); font-weight: bold; transform: scale(1.1); 
+        }
+
+        /* 🔥 橙色热力图等级 */
+        .lv-1 { background: #ffeaa7; border-color: #ffeaa7; color: #d35400; } /* 奶黄 */
+        .lv-2 { background: #fab1a0; border-color: #fab1a0; color: #fff; }    /* 浅橘 */
+        .lv-3 { background: #FF5A00; border-color: #FF5A00; color: #fff; font-weight: bold; } /* 鲜橙 */
+
+        /* 成员卡片 */
+        .member-card {
+            background: var(--card); border-radius: 16px; padding: 20px;
+            margin-bottom: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.03);
+            border-left: 5px solid transparent; transition: 0.2s;
+        }
+        .member-card:hover { border-left-color: var(--primary); }
+
+        .member-header { display: flex; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+        .avatar { 
+            width: 42px; height: 42px; background: #fff0e6; 
+            border-radius: 50%; margin-right: 12px; 
+            display: flex; align-items: center; justify-content: center; font-size: 24px; 
+        }
+        
+        .row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .cat-name { font-size: 15px; font-weight: 500; }
+        
+        .ctrls { display: flex; align-items: center; background: #fff5f0; border-radius: 10px; padding: 3px; }
+        .btn { width: 32px; height: 32px; border: none; background: white; border-radius: 8px; color: var(--primary); cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.05); font-size: 18px; }
+        .btn:active { transform: scale(0.9); }
+        .num { width: 36px; text-align: center; border: none; background: transparent; font-weight: bold; color: var(--text); }
+        
+        .note-input {
+            width: 100%; padding: 10px; border: 1px solid #eee; border-radius: 8px;
+            margin-top: 8px; background: #fafafa; box-sizing: border-box; font-size: 14px;
+        }
+        
+        /* 每日总结 */
+        .summary-box {
+            background: white; padding: 15px; border-radius: 12px; margin-top: 20px;
+            border: 1px dashed var(--accent); color: #555; font-size: 14px; line-height: 1.6;
+        }
+
+        #displayDate { display: block; text-align: center; margin-bottom: 10px; color: var(--gray); font-weight: 500;}
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>🍊 营业记录</h1>
+        <p>Anton · Sungchan · Eunseok</p>
+    </header>
+
+    <div class="calendar-box">
+        <div class="cal-header">
+            <span id="calendarMonthYear">Month Year</span>
+            <div>
+                <button class="btn" onclick="changeMonth(-1)" style="box-shadow:none; background:#f5f5f5; color:#555;">&lt;</button>
+                <button class="btn" onclick="changeMonth(1)" style="box-shadow:none; background:#f5f5f5; color:#555;">&gt;</button>
+            </div>
+        </div>
+        <div class="cal-grid" id="calendarGrid"></div>
+    </div>
+
+    <span id="displayDate"></span>
+
+    <div id="app"></div>
+
+    <div class="summary-box">
+        <b style="color:var(--primary)">📝 当日小结：</b>
+        <div id="summaryContent" style="margin-top:5px;"></div>
+    </div>
+
+    <input type="date" id="currentDate" style="display:none">
+
+    <script>
+        // === 🍊 成员配置 (剩下三人) ===
+        const members = [
+            { name: "Anton", emoji: "🦕" },
+            { name: "Sungchan", emoji: "🍊" }, 
+            { name: "Eunseok", emoji: "🪨" }
+        ];
+
+        const categories = ["IG Post", "IG Story", "Weverse", "TikTok", "Live"];
+        
+        // === 核心逻辑 ===
+        const app = document.getElementById('app');
+        const dateInput = document.getElementById('currentDate');
+        const displayDate = document.getElementById('displayDate');
+        const summaryContent = document.getElementById('summaryContent');
+        
+        let today = new Date();
+        // 修正时区
+        const offset = today.getTimezoneOffset() * 60000;
+        const localISOTime = (new Date(today - offset)).toISOString().slice(0, 10);
+        dateInput.value = localISOTime;
+        
+        let calendarViewDate = new Date(); 
+
+        // 1. 渲染界面
+        function render() {
+            app.innerHTML = '';
+            const dateKey = dateInput.value;
+            displayDate.textContent = "📅 当前查看: " + dateKey;
+
+            members.forEach(member => {
+                const card = document.createElement('div');
+                card.className = 'member-card';
+
+                // 计算今日总数
+                let totalToday = 0;
+                categories.forEach(cat => totalToday += getData(dateKey, member.name, cat));
+
+                let html = `
+                    <div class="member-header">
+                        <div class="avatar">${member.emoji}</div>
+                        <span style="font-weight:bold; font-size:18px;">${member.name}</span>
+                        ${totalToday > 0 ? `<span style="margin-left:auto; background:var(--primary); color:white; padding:2px 8px; border-radius:10px; font-size:12px;">🔥 ${totalToday}</span>` : ''}
+                    </div>
+                `;
+
+                categories.forEach(cat => {
+                    const count = getData(dateKey, member.name, cat);
+                    html += `
+                        <div class="row">
+                            <span class="cat-name">${cat}</span>
+                            <div class="ctrls">
+                                <button class="btn" onclick="updateCount('${member.name}', '${cat}', -1)">-</button>
+                                <input type="number" class="num" value="${count}" onchange="manualInput('${member.name}', '${cat}', this.value)">
+                                <button class="btn" onclick="updateCount('${member.name}', '${cat}', 1)">+</button>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                const note = getNote(dateKey, member.name);
+                html += `<input type="text" class="note-input" placeholder="✨ 备注: 发了什么..." value="${note}" oninput="saveNote('${member.name}', this.value)">`;
+
+                card.innerHTML = html;
+                app.appendChild(card);
+            });
+
+            renderSummary(dateKey);
+            renderCalendar();
+        }
+
+        // 2. 渲染摘要
+        function renderSummary(dateKey) {
+            let summaryHTML = '';
+            let hasActivity = false;
+
+            members.forEach(member => {
+                let acts = [];
+                categories.forEach(cat => {
+                    const c = getData(dateKey, member.name, cat);
+                    if (c > 0) acts.push(`${cat} x${c}`);
+                });
+                const note = getNote(dateKey, member.name);
+                if (note) acts.push(`"${note}"`);
+
+                if (acts.length > 0) {
+                    hasActivity = true;
+                    summaryHTML += `<div style="margin-bottom:4px;">${member.emoji} <b>${member.name}</b>: ${acts.join(', ')}</div>`;
+                }
+            });
+
+            summaryContent.innerHTML = hasActivity ? summaryHTML : '<span style="color:#aaa;">😴 这一天大家都在休息...</span>';
+        }
+
+        // 3. 渲染日历
+        function renderCalendar() {
+            const grid = document.getElementById('calendarGrid');
+            grid.innerHTML = ''; 
+            
+            const year = calendarViewDate.getFullYear();
+            const month = calendarViewDate.getMonth();
+            document.getElementById('calendarMonthYear').textContent = `${year}年 ${month + 1}月`;
+
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const firstDay = new Date(year, month, 1).getDay();
+            const weekDays = ['日', '一', '二', '三', '四', '五', '六'];
+            
+            weekDays.forEach(d => {
+                const l = document.createElement('div');
+                l.className = 'cal-day-label'; l.textContent = d;
+                grid.appendChild(l);
+            });
+
+            for (let i = 0; i < firstDay; i++) grid.appendChild(document.createElement('div'));
+
+            for (let i = 1; i <= daysInMonth; i++) {
+                const el = document.createElement('div');
+                const currentMonth = String(month + 1).padStart(2, '0');
+                const currentDay = String(i).padStart(2, '0');
+                const dateStr = `${year}-${currentMonth}-${currentDay}`;
+                
+                el.textContent = i;
+                
+                // 计算三人总热力
+                let total = 0;
+                members.forEach(m => categories.forEach(c => total += getData(dateStr, m.name, c)));
+                
+                el.className = 'cal-day';
+                if (total > 0) el.classList.add('lv-1');
+                if (total >= 5) el.classList.add('lv-2');
+                if (total >= 12) el.classList.add('lv-3'); 
+                
+                if (dateStr === dateInput.value) el.classList.add('selected');
+
+                el.onclick = () => { dateInput.value = dateStr; render(); };
+                grid.appendChild(el);
+            }
+        }
+
+        function changeMonth(offset) {
+            calendarViewDate.setMonth(calendarViewDate.getMonth() + offset);
+            renderCalendar();
+        }
+
+        // 4. 数据存取 (LocalStorage - 单机版)
+        function getData(date, name, cat) { return parseInt(localStorage.getItem(`${date}_${name}_${cat}`)) || 0; }
+        function getNote(date, name) { return localStorage.getItem(`${date}_${name}_note`) || ""; }
+        
+        function updateCount(name, cat, delta) {
+            const date = dateInput.value;
+            let val = getData(date, name, cat) + delta;
+            if (val < 0) val = 0;
+            localStorage.setItem(`${date}_${name}_${cat}`, val);
+            render();
+        }
+        function manualInput(name, cat, val) {
+            const date = dateInput.value;
+            let v = parseInt(val);
+            if (isNaN(v) || v < 0) v = 0;
+            localStorage.setItem(`${date}_${name}_${cat}`, v);
+            render();
+        }
+        function saveNote(name, val) {
+            localStorage.setItem(`${dateInput.value}_${name}_note`, val);
+            renderSummary(dateInput.value);
+        }
+
+        render();
+    </script>
+</body>
+</html>
